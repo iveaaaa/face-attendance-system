@@ -1,6 +1,7 @@
 venv/
 trainer.yml
 __pycache__/
+debug_faces/
 *.pyc
 .env
 dataset/ 
