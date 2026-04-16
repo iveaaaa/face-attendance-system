@@ -1,7 +1,16 @@
 import cv2
 
+CONFIDENCE_THRESHOLD = 80
+
 # Load Haar Cascade for face detection
 face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+# FIX: Guard against missing/broken cascade file
+if face_cascade.empty():
+    raise RuntimeError(
+        "Failed to load haarcascade_frontalface_default.xml. "
+        "Check the file path."
+    )
 
 # Load trained LBPH model
 recognizer = cv2.face.LBPHFaceRecognizer_create()
@@ -11,8 +20,10 @@ recognizer.read("trainer.yml")
 label_map = {}
 with open("labels.txt", "r", encoding="utf-8") as f:
     for line in f:
-        label_id, name = line.strip().split(",", 1)
-        label_map[int(label_id)] = name
+        line = line.strip()
+        if line:
+            label_id, name = line.split(",", 1)
+            label_map[int(label_id)] = name
 
 # Open webcam
 cap = cv2.VideoCapture(0)
@@ -29,15 +40,18 @@ while True:
         gray,
         scaleFactor=1.1,
         minNeighbors=4,
-        minSize=(60, 60)
+       # minSize=(60, 60)
     )
 
     for (x, y, w, h) in faces:
         face_region = gray[y:y+h, x:x+w]
 
+        # FIX: Resize to match the size used during training
+        face_region = cv2.resize(face_region, (200, 200))
+
         label_id, confidence = recognizer.predict(face_region)
 
-        if confidence < 80:
+        if confidence < CONFIDENCE_THRESHOLD:
             name = label_map.get(label_id, "Unknown")
         else:
             name = "Unknown"

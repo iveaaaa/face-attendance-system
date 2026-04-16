@@ -3,7 +3,16 @@ import os
 import numpy as np
 
 dataset_path = "dataset"
+
 face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+# FIX: Guard against missing/broken cascade file
+if face_cascade.empty():
+    raise RuntimeError(
+        "Failed to load haarcascade_frontalface_default.xml. "
+        "Check the file path."
+    )
+
 recognizer = cv2.face.LBPHFaceRecognizer_create()
 
 faces = []
@@ -17,7 +26,7 @@ for person_name in os.listdir(dataset_path):
     if not os.path.isdir(person_path):
         continue
 
-    label_map[current_id] = person_name
+    person_faces_collected = 0  # FIX: Track faces collected per person
 
     for image_name in os.listdir(person_path):
         image_path = os.path.join(person_path, image_name)
@@ -30,6 +39,7 @@ for person_name in os.listdir(dataset_path):
                 continue
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
             detected_faces = face_cascade.detectMultiScale(
                 gray,
                 scaleFactor=1.1,
@@ -43,16 +53,30 @@ for person_name in os.listdir(dataset_path):
             # Use only the largest face per image
             largest_face = max(detected_faces, key=lambda rect: rect[2] * rect[3])
             x, y, w, h = largest_face
+
             face_region = gray[y:y+h, x:x+w]
+
+            # FIX: Resize to a fixed size so all training samples are consistent,
+            # and recognition uses the same size (200x200)
+            face_region = cv2.resize(face_region, (200, 200))
 
             faces.append(face_region)
             labels.append(current_id)
+            person_faces_collected += 1
 
         except Exception as e:
             print(f"Error processing {image_path}: {e}")
             continue
 
-    current_id += 1
+    # FIX: Only register label and increment ID if faces were actually collected.
+    # Previously current_id incremented even for empty/failed folders,
+    # creating gaps in the label map.
+    if person_faces_collected > 0:
+        label_map[current_id] = person_name
+        print(f"Collected {person_faces_collected} face(s) for '{person_name}' (id={current_id})")
+        current_id += 1
+    else:
+        print(f"Skipping '{person_name}' — no usable faces found.")
 
 if len(faces) == 0:
     print("No faces found for training.")
@@ -66,3 +90,4 @@ else:
 
     print("Model trained successfully!")
     print(f"Total faces used for training: {len(faces)}")
+    print(f"Persons registered: {len(label_map)}")
