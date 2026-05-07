@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Records — AttendAI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Attendance Records</h1>
+        <p class="page-sub">View attendance by session</p>
+    </div>
+</div>
+
+<!-- Session filter -->
+<div class="card filter-card">
+    <form method="GET" action="{{ url_for('records') }}" class="filter-form">
+        <div class="form-group inline">
+            <label>Select Session</label>
+            <select name="session_id" onchange="this.form.submit()">
+                <option value="">— Choose a session —</option>
+                {% for s in sessions %}
+                <option value="{{ s.id }}" {% if selected_session == s.id|string %}selected{% endif %}>
+                    {{ s.session_name }} ({{ s.date }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if selected_session %}
+<div class="card">
+    <div class="card-header">
+        <h3>Attendance List</h3>
+        <span class="badge badge-blue">{{ attendance|length }} present</span>
+    </div>
+
+    {% if attendance %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Student Name</th>
+                <th>Student ID</th>
+                <th>Timestamp</th>
+                <th>Confidence</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in attendance %}
+            <tr>
+                <td class="mono text-muted">{{ loop.index }}</td>
+                <td><strong>{{ a.name }}</strong></td>
+                <td class="mono">{{ a.student_id }}</td>
+                <td class="mono">{{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') if a.timestamp else '—' }}</td>
+                <td class="mono">
+                    {% if a.recognition_confidence %}
+                        {{ '%.2f'|format(a.recognition_confidence) }}
+                        {% if a.recognition_confidence < 50 %}
+                            <span class="conf-good">✓</span>
+                        {% elif a.recognition_confidence < 80 %}
+                            <span class="conf-ok">~</span>
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-green">{{ a.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No attendance records for this session yet.</div>
+    {% endif %}
+</div>
+{% elif sessions %}
+<div class="empty-state card-style">
+    Select a session above to view its attendance records.
+</div>
+{% else %}
+<div class="empty-state card-style">
+    No sessions found. <a href="{{ url_for('sessions') }}">Create one first.</a>
+</div>
+{% endif %}
+{% endblock %}
