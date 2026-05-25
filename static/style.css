@@ -684,3 +684,121 @@ body.login-page {
     width: auto;
     object-fit: contain;
 }
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-capture-sm {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: #2563eb;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.btn-capture-sm:hover {
+    background: #1d4ed8;
+}
+
+.btn-primary-sm {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.btn-primary-sm:hover {
+    background: #1d4ed8;
+}
+.profile-actions{
+    margin-top:28px;
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+}
+
+.btn-register-face{
+    background:#111827;
+    color:white;
+    padding:12px 18px;
+    border-radius:12px;
+    text-decoration:none;
+    font-weight:600;
+    transition:0.2s ease;
+    border:none;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+}
+
+.btn-register-face:hover{
+    background:#1f2937;
+    transform:translateY(-1px);
+}
+.form-container {
+    max-width: 420px;
+    margin: 60px auto;
+    background: #ffffff;
+    padding: 32px;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.form-container h2 {
+    margin-bottom: 10px;
+    font-size: 24px;
+    color: #1f2937;
+}
+
+.form-container p {
+    margin-bottom: 24px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.form-container label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.form-container input {
+    width: 100%;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.form-container input:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.form-container button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.form-container button:hover {
+    background: #1d4ed8;
+}

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Students — AttendAI{% endblock %}
+{% block title %}Students — UniAttend{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title">Students</h1>
+        <h1 class="page-title">Manage Students</h1>
         <p class="page-sub">Manage registered students</p>
     </div>
     <button class="btn-primary" onclick="document.getElementById('add-modal').classList.add('open')">
-        + Add Student
+        + Register Student
     </button>
 </div>
 
@@ -29,9 +29,15 @@
                 <td class="mono text-muted">{{ loop.index }}</td>
                 <td><strong>{{ s.name }}</strong></td>
                 <td class="mono">{{ s.student_id }}</td>
-                <td>
+                <td class="action-buttons">
+                    {% if s.face_registered %}
+                        <span class="badge badge-green">Face Registered</span>
+                    {% else %}
+                        <span class="badge badge-blue">Pending Face</span>
+                    {% endif %}
+
                     <form method="POST" action="{{ url_for('delete_student', id=s.id) }}"
-                          onsubmit="return confirm('Delete {{ s.name }}?')">
+                        onsubmit="return confirm('Delete {{ s.name }}?')">
                         <button type="submit" class="btn-danger-sm">Delete</button>
                     </form>
                 </td>
@@ -50,7 +56,7 @@
 <div class="modal-overlay" id="add-modal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="modal">
         <div class="modal-header">
-            <h3>Add New Student</h3>
+            <h3>Register New Student</h3>
             <button class="modal-close" onclick="document.getElementById('add-modal').classList.remove('open')">✕</button>
         </div>
         <form method="POST" action="{{ url_for('add_student') }}">
@@ -64,7 +70,7 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" onclick="document.getElementById('add-modal').classList.remove('open')">Cancel</button>
-                <button type="submit" class="btn-primary">Add Student</button>
+                <button type="submit" class="btn-primary">Register Student</button>
             </div>
         </form>
     </div>

@@ -5,3 +5,4 @@ debug_faces/
 *.pyc
 .env
 dataset/ 
+dataset_backup/

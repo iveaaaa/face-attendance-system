@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Manage Class Students — UniAttend{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Manage Students</h1>
+        <p class="page-sub">
+            {{ selected_class.course_code }} — {{ selected_class.class_name }}
+        </p>
+    </div>
+    <a href="{{ url_for('classes') }}" class="btn-secondary-sm">Back</a>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('save_class_students', class_id=selected_class.id) }}">
+        {% if students %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Select</th>
+                    <th>Name</th>
+                    <th>Student ID</th>
+                    <th>Face Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr>
+                    <td>
+                        <input type="checkbox"
+                               name="student_ids"
+                               value="{{ s.id }}"
+                               {% if s.id in enrolled %}checked{% endif %}>
+                    </td>
+                    <td><strong>{{ s.name }}</strong></td>
+                    <td class="mono">{{ s.student_id }}</td>
+                    <td>
+                        {% if s.face_registered %}
+                            <span class="badge badge-green">Face Registered</span>
+                        {% else %}
+                            <span class="badge badge-blue">Pending Face</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="modal-actions">
+            <button type="submit" class="btn-primary">Save Students</button>
+        </div>
+        {% else %}
+        <div class="empty-state">No students registered yet.</div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

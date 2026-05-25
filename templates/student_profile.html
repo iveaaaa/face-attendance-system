@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}My Profile — UniAttend{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Profile</h1>
+        <p class="page-sub">View your student information</p>
+    </div>
+</div>
+
+<div class="card">
+
+    {% if student %}
+
+    <table class="data-table">
+        <tr>
+            <th>Name</th>
+            <td>{{ student.name }}</td>
+        </tr>
+
+        <tr>
+            <th>Student ID</th>
+            <td>{{ student.student_id }}</td>
+        </tr>
+
+        <tr>
+            <th>Program</th>
+            <td>{{ student.program if student.program else '—' }}</td>
+        </tr>
+
+        <tr>
+            <th>Email</th>
+            <td>{{ student.email if student.email else '—' }}</td>
+        </tr>
+        <tr>
+            <th>Face Status</th>
+            <td>
+                {% if student.face_status == 'Successful' %}
+                    <span class="badge badge-green">
+                        Successful
+                    </span>
+                {% else %}
+                    <span class="badge badge-orange">
+                        Pending
+                    </span>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+
+    <div class="profile-actions">
+        <a href="{{ url_for('edit_student_profile') }}"
+        class="btn-secondary-sm">
+            Edit Profile
+        </a>
+        {% if student.face_registered %}
+            <span class="badge badge-green">
+                ✓ Face Registered
+            </span>
+        {% else %}
+            <a href="{{ url_for('student_register_face') }}"
+               class="btn-register-face">
+                Register Face
+            </a>
+        {% endif %}
+
+    </div>
+
+    {% else %}
+
+    <div class="empty-state">
+        Profile not found.
+    </div>
+
+    {% endif %}
+
+</div>
+{% endblock %}

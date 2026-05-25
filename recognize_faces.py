@@ -2,7 +2,7 @@ import cv2
 import mysql.connector
 import mediapipe as mp
 import math
-
+import sys
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -11,25 +11,6 @@ def get_db_connection():
         password="",
         database="face_attendance_db"
     )
-
-
-def create_attendance_session(class_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    query = """
-        INSERT INTO attendance_sessions (session_name, date, start_time, end_time, class_id)
-        VALUES (%s, CURDATE(), CURTIME(), CURTIME(), %s)
-    """
-    cursor.execute(query, ("Live Recognition Session", class_id))
-    conn.commit()
-
-    session_id = cursor.lastrowid
-
-    cursor.close()
-    conn.close()
-
-    return session_id
 
 
 def get_student_id_by_name(name):
@@ -89,6 +70,21 @@ def mark_attendance(student_id, session_id, confidence):
     cursor.close()
     conn.close()
 
+def stop_attendance_session(session_id):
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE attendance_sessions
+        SET end_time = CURTIME()
+        WHERE id = %s
+    """, (session_id,))
+
+    conn.commit()
+
+    cursor.close()
+    conn.close()
 
 # =========================
 # BLINK DETECTION SETTINGS
@@ -139,10 +135,11 @@ def detect_blink(landmarks):
 # FACE RECOGNITION SETTINGS
 # =========================
 
-CONFIDENCE_THRESHOLD = 80
+CONFIDENCE_THRESHOLD = 65
 
 # TEMPORARY: selected class
-class_id = 1
+class_id = int(sys.argv[1])
+session_id = int(sys.argv[2])
 
 face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
@@ -164,8 +161,6 @@ with open("labels.txt", "r", encoding="utf-8") as f:
             label_id, name = line.split(",", 1)
             label_map[int(label_id)] = name
 
-
-session_id = create_attendance_session(class_id)
 print("Session started:", session_id)
 print("Selected class ID:", class_id)
 
@@ -303,6 +298,11 @@ with mp_face_mesh.FaceMesh(
         cv2.imshow("UniAttend - Live Attendance Session", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
+
+            stop_attendance_session(session_id)
+
+            print("Attendance session stopped.")
+            
             break
 
 
