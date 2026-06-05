@@ -3,6 +3,7 @@ import mysql.connector
 import math
 import sys
 import os
+import time
 import threading
 from collections import defaultdict
 from deepface import DeepFace
@@ -19,7 +20,6 @@ def get_db_connection():
         database="face_attendance_db"
     )
 
-
 def get_student_id_by_name(name):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -28,7 +28,6 @@ def get_student_id_by_name(name):
     cursor.close()
     conn.close()
     return result[0] if result else None
-
 
 def student_belongs_to_class(student_id, class_id):
     conn = get_db_connection()
@@ -41,7 +40,6 @@ def student_belongs_to_class(student_id, class_id):
     cursor.close()
     conn.close()
     return result is not None
-
 
 def mark_attendance(student_id, session_id, confidence):
     conn = get_db_connection()
@@ -63,7 +61,6 @@ def mark_attendance(student_id, session_id, confidence):
     cursor.close()
     conn.close()
 
-
 def stop_attendance_session(session_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -76,7 +73,6 @@ def stop_attendance_session(session_id):
     cursor.close()
     conn.close()
 
-
 # =========================
 # SETTINGS
 # =========================
@@ -85,13 +81,14 @@ DATASET_PATH          = "dataset"
 MODEL_NAME            = "ArcFace"
 DETECTOR_BACKEND      = "yunet"
 DISTANCE_METRIC       = "cosine"
-DISTANCE_THRESHOLD    = 0.40
-VOTE_THRESHOLD        = 15
-DOMINANT_RATIO        = 0.75
-REGION_DIST_THRESHOLD = 200
+DISTANCE_THRESHOLD    = 0.43
+VOTE_THRESHOLD        = 8
+DOMINANT_RATIO        = 0.60
+REGION_DIST_THRESHOLD = 150   # ← reduced so closer faces treated as separate
 REGION_MAX_IDLE       = 30
 SMOOTHING_ALPHA       = 0.25
-RECOGNITION_INTERVAL  = 10
+RECOGNITION_INTERVAL  = 12
+CONFIDENCE_THRESHOLD  = 0.65  # ← lowered from 0.75 to detect more faces
 
 # =========================
 # REGION TRACKER
@@ -163,7 +160,6 @@ class FaceRegionTracker:
         for rid in to_delete:
             del self.regions[rid]
 
-
 # =========================
 # RECOGNITION THREAD
 # =========================
@@ -171,7 +167,6 @@ class FaceRegionTracker:
 recognition_cache  = {}
 processing_lock    = threading.Lock()
 processing_regions = set()
-
 
 def recognize_face_async(frame_rgb, region_id, x, y, w, h):
     global recognition_cache, processing_regions
@@ -194,7 +189,6 @@ def recognize_face_async(frame_rgb, region_id, x, y, w, h):
         if results and len(results[0]) > 0:
             top_result = results[0].iloc[0]
 
-            # Find distance column dynamically
             dist_col = None
             for col in top_result.index:
                 if 'cosine' in col.lower() or 'distance' in col.lower():
@@ -223,7 +217,6 @@ def recognize_face_async(frame_rgb, region_id, x, y, w, h):
     finally:
         with processing_lock:
             processing_regions.discard(region_id)
-
 
 # =========================
 # MAIN
@@ -258,10 +251,12 @@ try:
 except Exception as e:
     print(f"Embedding preload warning: {e}")
 
-tracker        = FaceRegionTracker()
-already_marked = set()
-frame_counter  = 0
-stable_boxes   = {}  # Persists between frames — prevents blinking
+tracker            = FaceRegionTracker()
+already_marked     = set()
+frame_counter      = 0
+stable_boxes       = {}
+session_start_time = time.time()
+print(f"[TIMER] Webcam opened — timer started")
 
 cap = cv2.VideoCapture(1)
 if not cap.isOpened():
@@ -277,7 +272,6 @@ while True:
     frame_rgb     = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     frame_counter += 1
 
-    # --- Run detection every N frames only ---
     if frame_counter % RECOGNITION_INTERVAL == 0:
         try:
             detected_faces = DeepFace.extract_faces(
@@ -291,48 +285,45 @@ while True:
 
         active_rids = set()
 
-        # Filter overlapping detections — keep only the largest box per face
-        def filter_overlapping_faces(faces, overlap_threshold=0.5):
+        def filter_overlapping_faces(faces, overlap_threshold=0.4):
             if not faces:
                 return faces
-            
-            # Sort by box area (largest first)
-            faces = sorted(faces, key=lambda f: f["facial_area"]["w"] * f["facial_area"]["h"], reverse=True)
-            
+            faces = sorted(faces,
+                key=lambda f: f["facial_area"]["w"] * f["facial_area"]["h"],
+                reverse=True)
             kept = []
             for face in faces:
                 r = face["facial_area"]
                 x1, y1, w1, h1 = r["x"], r["y"], r["w"], r["h"]
-                
                 is_duplicate = False
                 for kept_face in kept:
                     kr = kept_face["facial_area"]
                     x2, y2, w2, h2 = kr["x"], kr["y"], kr["w"], kr["h"]
-                    
-                    # Calculate overlap
                     ix = max(0, min(x1+w1, x2+w2) - max(x1, x2))
                     iy = max(0, min(y1+h1, y2+h2) - max(y1, y2))
                     intersection = ix * iy
                     union = w1*h1 + w2*h2 - intersection
                     iou = intersection / union if union > 0 else 0
-                    
                     if iou > overlap_threshold:
                         is_duplicate = True
                         break
-                
                 if not is_duplicate:
                     kept.append(face)
-            
             return kept
 
         detected_faces = filter_overlapping_faces(detected_faces)
+
+        # Print how many faces detected this frame
+        if detected_faces:
+            print(f"[DETECTION] {len(detected_faces)} face(s) detected in frame")
 
         for face_obj in detected_faces:
             region = face_obj["facial_area"]
             x, y, w, h = region["x"], region["y"], region["w"], region["h"]
             confidence  = face_obj.get("confidence", 0)
 
-            if confidence < 0.75:
+            if confidence < CONFIDENCE_THRESHOLD:
+                print(f"[SKIPPED] Face skipped — confidence={confidence:.2f}")
                 continue
 
             cx, cy = x + w // 2, y + h // 2
@@ -347,7 +338,7 @@ while True:
 
             with processing_lock:
                 is_processing = rid in processing_regions
-                too_many = len(processing_regions) >= 5  # max 5 faces at once
+                too_many      = len(processing_regions) >= 4
 
             if not is_processing and not too_many:
                 with processing_lock:
@@ -362,7 +353,6 @@ while True:
             rid, should_mark, winning_name, ratio = tracker.update(cx, cy, name)
             active_rids.add(rid)
 
-            # Update stable box — persists every frame
             stable_boxes[rid] = {
                 "x": x, "y": y, "w": w, "h": h,
                 "name": name,
@@ -370,14 +360,14 @@ while True:
                 "vote_progress": tracker.regions.get(rid, {}).get("total_frames", 0)
             }
 
-            # Attendance marking
             if should_mark and winning_name is not None:
                 student_id = get_student_id_by_name(winning_name)
                 if student_id and student_id not in already_marked:
                     if student_belongs_to_class(student_id, class_id):
                         mark_attendance(student_id, session_id, round(distance, 4))
                         already_marked.add(student_id)
-                        print(f"[ACCEPTED] {winning_name} | ratio={ratio:.2f} | distance={distance:.4f}")
+                        elapsed = round(time.time() - session_start_time, 2)
+                        print(f"[ACCEPTED] {winning_name} | ratio={ratio:.2f} | distance={distance:.4f} | time={elapsed}s")
                     else:
                         print(f"[NOT IN CLASS] {winning_name} skipped.")
                 elif student_id in already_marked:
@@ -387,12 +377,11 @@ while True:
 
         tracker.tick_idle(active_rids)
 
-        # Remove boxes for expired regions
         for rid in list(stable_boxes.keys()):
             if rid not in tracker.regions:
                 del stable_boxes[rid]
 
-    # --- DRAW stable boxes EVERY frame — no blinking ---
+    # DRAW stable boxes
     for rid, box in stable_boxes.items():
         x, y, w, h    = box["x"], box["y"], box["w"], box["h"]
         name          = box["name"]
@@ -405,45 +394,43 @@ while True:
         cv2.rectangle(frame, (x, y - 35), (x + w, y), box_color, -1)
 
         display_name = name.title() if name != "Unknown" else "UNKNOWN"
-        cv2.putText(
-            frame, display_name,
+        cv2.putText(frame, display_name,
             (x + 8, y - 10),
             cv2.FONT_HERSHEY_SIMPLEX, 0.65,
-            (255, 255, 255), 2,
-        )
+            (255, 255, 255), 2)
 
         if name != "Unknown":
-            cv2.putText(
-                frame, f"dist:{distance:.2f}",
+            cv2.putText(frame, f"dist:{distance:.2f}",
                 (x + 8, y + h + 20),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                (200, 200, 200), 1,
-            )
+                (200, 200, 200), 1)
 
         if vote_progress > 0:
             bar_width = min(int(w * (vote_progress / VOTE_THRESHOLD)), w)
             cv2.rectangle(frame, (x, y + h + 25), (x + bar_width, y + h + 32), (0, 255, 200), -1)
             cv2.rectangle(frame, (x, y + h + 25), (x + w, y + h + 32), (100, 100, 100), 1)
 
-    # --- HUD ---
+    # HUD
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (frame.shape[1], 55), (20, 20, 20), -1)
     frame = cv2.addWeighted(overlay, 0.6, frame, 0.4, 0)
-
-    cv2.putText(
-        frame,
+    cv2.putText(frame,
         f"UniAttend - Live Attendance  |  Model: ArcFace  |  Marked: {len(already_marked)}",
         (15, 33),
         cv2.FONT_HERSHEY_SIMPLEX, 0.60,
-        (255, 255, 255), 2,
-    )
+        (255, 255, 255), 2)
 
     cv2.imshow("UniAttend - Live Attendance Session", frame)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         stop_attendance_session(session_id)
-        print("Attendance session stopped.")
+        total_time = round(time.time() - session_start_time, 2)
+        print(f"─────────────────────────────────────")
+        print(f"Session stopped.")
+        print(f"Total students marked : {len(already_marked)}")
+        print(f"Total session time    : {total_time}s")
+        print(f"─────────────────────────────────────")
         break
 
 cap.release()
