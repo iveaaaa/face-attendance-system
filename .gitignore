@@ -4,5 +4,8 @@ __pycache__/
 debug_faces/
 *.pyc
 .env
-dataset/ 
+dataset/
 dataset_backup/
+models/
+*.pkl
+*.yml

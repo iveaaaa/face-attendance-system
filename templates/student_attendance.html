@@ -2,34 +2,64 @@
 {% block title %}My Attendance — UniAttend{% endblock %}
 
 {% block content %}
+
 <div class="page-header">
     <div>
         <h1 class="page-title">My Attendance</h1>
-        <p class="page-sub">View your attendance history and statistics</p>
+        <p class="page-sub">View your attendance history and statistics by class</p>
     </div>
 </div>
 
-<div class="stat-grid">
-    <div class="stat-card accent-blue">
-        <div>
-            <div class="stat-label">Total Classes</div>
-            <div class="stat-number">{{ total_classes }}</div>
-        </div>
-    </div>
+<div class="card">
+    <h3>Attendance Percentage by Class</h3>
 
-    <div class="stat-card accent-green">
-        <div>
-            <div class="stat-label">Attended</div>
-            <div class="stat-number">{{ attended }}</div>
-        </div>
-    </div>
+    {% if class_summary %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Course Code</th>
+                <th>Class Name</th>
+                <th>Present</th>
+                <th>Total Sessions</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
 
-    <div class="stat-card accent-orange">
-        <div>
-            <div class="stat-label">Attendance %</div>
-            <div class="stat-number">{{ percentage }}%</div>
-        </div>
-    </div>
+        <tbody>
+            {% for c in class_summary %}
+            <tr>
+                <td>{{ c.course_code }}</td>
+                <td>{{ c.class_name }}</td>
+                <td>{{ c.attended }}</td>
+                <td>{{ c.total_sessions }}</td>
+                <td>{{ c.percentage }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No attendance summary yet.</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Filter Attendance History</h3>
+
+    <form method="GET" action="{{ url_for('student_attendance') }}" class="search-form">
+
+        <select name="class_id">
+            <option value="">All Classes</option>
+
+            {% for c in filter_classes %}
+            <option value="{{ c.id }}" {% if selected_class|string == c.id|string %}selected{% endif %}>
+                {{ c.course_code }} - {{ c.class_name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="btn btn-primary">Filter</button>
+
+    </form>
 </div>
 
 <div class="card">
@@ -42,6 +72,7 @@
         <thead>
             <tr>
                 <th>#</th>
+                <th>Course</th>
                 <th>Session</th>
                 <th>Date</th>
                 <th>Time</th>
@@ -49,15 +80,23 @@
                 <th>Status</th>
             </tr>
         </thead>
+
         <tbody>
             {% for a in attendance %}
             <tr>
                 <td>{{ loop.index }}</td>
+                <td>{{ a.course_code }}</td>
                 <td><strong>{{ a.session_name }}</strong></td>
                 <td>{{ a.date }}</td>
                 <td>{{ a.timestamp.strftime('%H:%M:%S') if a.timestamp else '—' }}</td>
                 <td>{{ '%.2f'|format(a.recognition_confidence) if a.recognition_confidence else '—' }}</td>
-                <td><span class="badge badge-green">{{ a.status }}</span></td>
+                <td>
+                    {% if a.status == 'Present' %}
+                        <span class="badge badge-green">Present</span>
+                    {% else %}
+                        <span class="badge badge-red">Absent</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -66,4 +105,5 @@
     <div class="empty-state">No attendance records available yet.</div>
     {% endif %}
 </div>
+
 {% endblock %}

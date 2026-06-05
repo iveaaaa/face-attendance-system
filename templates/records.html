@@ -2,38 +2,82 @@
 {% block title %}Records — UniAttend{% endblock %}
 
 {% block content %}
+
 <div class="page-header">
     <div>
         <h1 class="page-title">Attendance Records</h1>
-        <p class="page-sub">View attendance by session</p>
+        {% if selected_class %}
+        <p class="page-sub">{{ selected_class.course_code }} — {{ selected_class.class_name }}</p>
+        {% else %}
+        <p class="page-sub">View attendance records</p>
+        {% endif %}
     </div>
+    {% if selected_class %}
+    <a href="{{ url_for('class_details', class_id=selected_class.class_id) }}"
+       class="btn-secondary-sm">← Back to Class</a>
+    {% else %}
+    <a href="{{ url_for('classes') }}" class="btn-secondary-sm">← Back to Classes</a>
+    {% endif %}
 </div>
 
-<!-- Session filter -->
+<!-- Session Info Banner -->
+{% if selected_session_info %}
+<div class="card session-banner">
+    <div class="session-banner-left">
+        <div class="session-banner-title">{{ selected_session_info.session_name }}</div>
+        <div class="session-banner-sub">{{ selected_session_info.date }} &nbsp;|&nbsp; {{ selected_session_info.start_time }}</div>
+    </div>
+    <div class="session-banner-stats">
+        <div class="session-stat">
+            <i class="bi bi-check-circle-fill" style="color:#22c55e;"></i>
+            <span>Present: <strong>{{ present_count }}</strong></span>
+        </div>
+        <div class="session-stat">
+            <i class="bi bi-x-circle-fill" style="color:#ef4444;"></i>
+            <span>Absent: <strong>{{ absent_count }}</strong></span>
+        </div>
+        <div class="session-stat">
+            <i class="bi bi-people-fill" style="color:#3b82f6;"></i>
+            <span>Total: <strong>{{ attendance|length }}</strong></span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Filter Card -->
 <div class="card filter-card">
-    <form method="GET" action="{{ url_for('records') }}" class="filter-form">
-        <div class="form-group inline">
-            <label>Select Session</label>
-            <select name="session_id" onchange="this.form.submit()">
-                <option value="">— Choose a session —</option>
-                {% for s in sessions %}
-                <option value="{{ s.id }}" {% if selected_session == s.id|string %}selected{% endif %}>
-                    {{ s.session_name }} ({{ s.date }})
-                </option>
-                {% endfor %}
+    <form method="GET" action="{{ url_for('records') }}" 
+          class="records-filter-form" id="filter-form">
+        <input type="hidden" name="session_id" value="{{ selected_session }}">
+        {% if selected_class %}
+        <input type="hidden" name="class_id" value="{{ selected_class.class_id }}">
+        {% endif %}
+
+        <div class="form-group">
+            <label>Status</label>
+            <select name="status" id="status-filter">
+                <option value="">All Status</option>
+                <option value="Present" {% if status_filter == 'Present' %}selected{% endif %}>Present</option>
+                <option value="Absent"  {% if status_filter == 'Absent'  %}selected{% endif %}>Absent</option>
             </select>
+        </div>
+
+        <div class="form-group">
+            <label>Search Student</label>
+            <input type="text" name="search" id="search-input"
+                   placeholder="Search by Student ID or Name"
+                   value="{{ search_query }}">
         </div>
     </form>
 </div>
 
-{% if selected_session %}
+<!-- Attendance Table -->
+{% if attendance %}
 <div class="card">
     <div class="card-header">
         <h3>Attendance List</h3>
-        <span class="badge badge-blue">{{ attendance|length }} present</span>
+        <span class="badge badge-blue">{{ attendance|length }} students</span>
     </div>
-
-    {% if attendance %}
     <table class="data-table">
         <thead>
             <tr>
@@ -43,6 +87,7 @@
                 <th>Timestamp</th>
                 <th>Confidence</th>
                 <th>Status</th>
+                <th>Action</th>
             </tr>
         </thead>
         <tbody>
@@ -51,35 +96,91 @@
                 <td class="mono text-muted">{{ loop.index }}</td>
                 <td><strong>{{ a.name }}</strong></td>
                 <td class="mono">{{ a.student_id }}</td>
-                <td class="mono">{{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') if a.timestamp else '—' }}</td>
+                <td class="mono">
+                    {{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') if a.timestamp else '—' }}
+                </td>
                 <td class="mono">
                     {% if a.recognition_confidence %}
-                        {{ '%.2f'|format(a.recognition_confidence) }}
-                        {% if a.recognition_confidence < 50 %}
-                            <span class="conf-good">✓</span>
-                        {% elif a.recognition_confidence < 80 %}
-                            <span class="conf-ok">~</span>
+                        {% set conf = a.recognition_confidence %}
+                        {% if conf <= 1 %}
+                            {% if conf < 0.20 %}
+                                <span style="color:#16a34a;">{{ '%.4f'|format(conf) }} ✓✓</span>
+                            {% elif conf < 0.35 %}
+                                <span style="color:#ca8a04;">{{ '%.4f'|format(conf) }} ✓</span>
+                            {% else %}
+                                <span style="color:#dc2626;">{{ '%.4f'|format(conf) }}</span>
+                            {% endif %}
+                        {% else %}
+                            {{ '%.2f'|format(conf) }}
                         {% endif %}
                     {% else %}
-                        —
+                        <span class="text-muted">Manual</span>
                     {% endif %}
                 </td>
-                <td><span class="badge badge-green">{{ a.status }}</span></td>
+                <td>
+                    {% if a.status == 'Present' %}
+                        <span class="badge badge-green">Present</span>
+                    {% else %}
+                        <span class="badge badge-red">Absent</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if a.record_id %}
+                        {% if a.status == 'Absent' %}
+                        <form method="POST"
+                              action="{{ url_for('update_attendance_record', record_id=a.record_id) }}">
+                            <input type="hidden" name="status" value="Present">
+                            <button type="submit" class="btn btn-primary">Mark Present</button>
+                        </form>
+                        {% else %}
+                        <form method="POST"
+                              action="{{ url_for('update_attendance_record', record_id=a.record_id) }}">
+                            <input type="hidden" name="status" value="Absent">
+                            <button type="submit" class="btn btn-danger">Mark Absent</button>
+                        </form>
+                        {% endif %}
+                    {% else %}—{% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-    <div class="empty-state">No attendance records for this session yet.</div>
-    {% endif %}
-</div>
-{% elif sessions %}
-<div class="empty-state card-style">
-    Select a session above to view its attendance records.
+
+    <!-- Pagination -->
+    <div class="pagination">
+        {% if page > 1 %}
+        <a class="btn btn-secondary"
+           href="{{ url_for('records', session_id=selected_session, class_id=selected_class.class_id if selected_class else '', status=status_filter, search=search_query, page=page-1) }}">
+            Previous
+        </a>
+        {% endif %}
+        <span class="page-indicator">Page {{ page }}</span>
+        {% if attendance|length == per_page %}
+        <a class="btn btn-secondary"
+           href="{{ url_for('records', session_id=selected_session, class_id=selected_class.class_id if selected_class else '', status=status_filter, search=search_query, page=page+1) }}">
+            Next
+        </a>
+        {% endif %}
+    </div>
 </div>
 {% else %}
 <div class="empty-state card-style">
-    No sessions found. <a href="{{ url_for('sessions') }}">Create one first.</a>
+    No attendance records found.
 </div>
 {% endif %}
+<script>
+// Auto-submit on status change
+document.getElementById('status-filter').addEventListener('change', function() {
+    document.getElementById('filter-form').submit();
+});
+
+// Auto-submit on search with 500ms debounce
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() {
+        document.getElementById('filter-form').submit();
+    }, 500);
+});
+</script>
 {% endblock %}

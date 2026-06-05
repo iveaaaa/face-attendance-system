@@ -2,14 +2,27 @@
 {% block title %}Classes — UniAttend{% endblock %}
 
 {% block content %}
+
 <div class="page-header">
     <div>
         <h1 class="page-title">Classes</h1>
         <p class="page-sub">Start attendance based on subject class</p>
-        <button class="btn-primary" onclick="document.getElementById('add-class-modal').classList.add('open')">
-            + Add Class
-        </button>
     </div>
+    <button class="btn btn-primary"
+            onclick="document.getElementById('add-class-modal').classList.add('open')">
+        + Add Class
+    </button>
+</div>
+
+<!-- Auto Search -->
+<div class="card filter-card">
+    <form method="GET" action="{{ url_for('classes') }}" id="search-form">
+        <div class="form-group" style="margin-bottom:0;">
+            <input type="text" name="search" id="search-input"
+                   placeholder="Search by course code or class name"
+                   value="{{ search }}">
+        </div>
+    </form>
 </div>
 
 <div class="card">
@@ -26,103 +39,75 @@
         <tbody>
             {% for c in classes %}
             <tr>
-                <td>{{ loop.index }}</td>
+                <td>{{ loop.index + ((page - 1) * per_page) }}</td>
                 <td class="mono">{{ c.course_code }}</td>
                 <td><strong>{{ c.class_name }}</strong></td>
                 <td class="action-buttons">
-                    <a href="{{ url_for('manage_class_students', class_id=c.id) }}"
-                    class="btn-secondary-sm">
-                        Manage Students
-                    </a>
-
-                    <button class="btn-primary-sm"
-                            onclick="openSessionModal('{{ c.id }}', '{{ c.course_code }}', '{{ c.class_name }}')">
-                        Start Attendance
-                    </button>
+                    <a href="{{ url_for('class_details', class_id=c.id) }}"
+                       class="btn-primary-sm">View Details</a>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <div class="pagination">
+        {% if page > 1 %}
+        <a class="btn btn-secondary"
+           href="{{ url_for('classes', search=search, page=page-1) }}">Previous</a>
+        {% endif %}
+        <span class="page-indicator">Page {{ page }}</span>
+        {% if classes|length == per_page %}
+        <a class="btn btn-secondary"
+           href="{{ url_for('classes', search=search, page=page+1) }}">Next</a>
+        {% endif %}
+    </div>
+
     {% else %}
-    <div class="empty-state">No classes added yet.</div>
+    <div class="empty-state">No classes found.</div>
     {% endif %}
 </div>
-<!-- Start Attendance Modal -->
-<div class="modal-overlay" id="session-modal"
+
+<!-- Add Class Modal -->
+<div class="modal-overlay" id="add-class-modal"
      onclick="if(event.target===this) this.classList.remove('open')">
-
-    <div class="modal">
-        <div class="modal-header">
-            <h3>Start Attendance</h3>
-
-            <button class="modal-close"
-                    onclick="document.getElementById('session-modal').classList.remove('open')">
-                ✕
-            </button>
-        </div>
-
-        <form method="POST" id="session-form">
-
-            <div class="form-group">
-                <label>Session Name</label>
-
-                <input type="text"
-                       name="session_name"
-                       id="session_name"
-                       required>
-            </div>
-
-            <div class="modal-actions">
-                <button type="button"
-                        class="btn-secondary"
-                        onclick="document.getElementById('session-modal').classList.remove('open')">
-                    Cancel
-                </button>
-
-                <button type="submit" class="btn-primary">
-                    Start Attendance
-                </button>
-            </div>
-
-        </form>
-    </div>
-</div>
-<div class="modal-overlay" id="add-class-modal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="modal">
         <div class="modal-header">
             <h3>Add New Class</h3>
-            <button class="modal-close" onclick="document.getElementById('add-class-modal').classList.remove('open')">✕</button>
+            <button class="modal-close"
+                    onclick="document.getElementById('add-class-modal').classList.remove('open')">✕</button>
         </div>
-
         <form method="POST" action="{{ url_for('add_class') }}">
             <div class="form-group">
                 <label>Course Code</label>
-                <input type="text" name="course_code" placeholder="e.g. TMF3943" required>
+                <input type="text" name="course_code"
+                       placeholder="e.g. TMF3943" required>
             </div>
-
             <div class="form-group">
                 <label>Class Name</label>
-                <input type="text" name="class_name" placeholder="e.g. Final Year Project" required>
+                <input type="text" name="class_name"
+                       placeholder="e.g. Final Year Project" required>
             </div>
-
             <div class="modal-actions">
-                <button type="button" class="btn-secondary" onclick="document.getElementById('add-class-modal').classList.remove('open')">Cancel</button>
+                <button type="button" class="btn-secondary"
+                        onclick="document.getElementById('add-class-modal').classList.remove('open')">
+                    Cancel
+                </button>
                 <button type="submit" class="btn-primary">Add Class</button>
             </div>
         </form>
     </div>
 </div>
+
 <script>
-function openSessionModal(classId, courseCode, className) {
-
-    document.getElementById('session-modal').classList.add('open');
-
-    document.getElementById('session_name').value =
-        courseCode + ' - ' + className;
-
-    document.getElementById('session-form').action =
-        '/classes/' + classId + '/start';
-}
+// Auto-submit on search with 500ms debounce
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() {
+        document.getElementById('search-form').submit();
+    }, 500);
+});
 </script>
+
 {% endblock %}

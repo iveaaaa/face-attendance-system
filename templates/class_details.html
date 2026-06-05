@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Class Details — UniAttend{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ selected_class.course_code }} — {{ selected_class.class_name }}</h1>
+        <p class="page-sub">Class Details & Attendance</p>
+    </div>
+    <a href="{{ url_for('classes') }}" class="btn-secondary-sm">← Back to Classes</a>
+</div>
+
+<!-- Start Attendance Card -->
+<div class="card start-session-card">
+    <div class="start-session-left">
+        <div class="start-session-icon">
+            <i class="bi bi-camera-video-fill"></i>
+        </div>
+        <div>
+            <div class="start-session-title">Start Attendance Session</div>
+            <div class="start-session-sub">
+                Launch face recognition for <strong>{{ selected_class.course_code }} — {{ selected_class.class_name }}</strong>
+            </div>
+        </div>
+    </div>
+    <button class="start-session-btn"
+            onclick="document.getElementById('session-modal').classList.add('open')">
+        <i class="bi bi-play-fill"></i> Start Now
+    </button>
+</div>
+
+<!-- Past Sessions -->
+<div class="card">
+    <div class="card-header">
+        <h3>Past Sessions</h3>
+        <span class="badge badge-blue">{{ past_sessions|length }} sessions</span>
+    </div>
+
+    {% if past_sessions %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Session Name</th>
+                <th>Date</th>
+                <th>Start Time</th>
+                <th>Present</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in past_sessions %}
+            <tr>
+                <td class="mono text-muted">{{ loop.index }}</td>
+                <td><strong>{{ s.session_name }}</strong></td>
+                <td class="mono">{{ s.date }}</td>
+                <td class="mono">{{ s.start_time }}</td>
+                <td><span class="badge badge-green">{{ s.present_count }}</span></td>
+                <td>
+                    <div class="row-actions">
+                        <a href="{{ url_for('records', session_id=s.id, class_id=selected_class.id) }}"
+                           class="btn-secondary-sm">View Records</a>
+                        <form method="POST" action="{{ url_for('delete_session', id=s.id) }}"
+                              onsubmit="return confirm('Delete this session and all its records?')">
+                            <button type="submit" class="btn-danger-sm">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No sessions yet. Start one above!</div>
+    {% endif %}
+</div>
+
+<!-- Enrolled Students -->
+<div class="card">
+    <div class="card-header">
+        <h3>Enrolled Students</h3>
+        <span class="badge badge-blue">{{ students|length }} students</span>
+    </div>
+
+    {% if students %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Student ID</th>
+                <th>Face Status</th>
+                <th>Sessions Attended</th>
+                <th>Attendance %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr>
+                <td class="mono text-muted">{{ loop.index }}</td>
+                <td><strong>{{ s.name }}</strong></td>
+                <td class="mono">{{ s.student_id }}</td>
+                <td>
+                    {% if s.face_registered %}
+                        <span class="badge badge-green">Registered</span>
+                    {% else %}
+                        <span class="badge badge-red">Pending</span>
+                    {% endif %}
+                </td>
+                <td class="mono">{{ s.attended }} / {{ total_sessions }}</td>
+                <td>
+                    {% if total_sessions > 0 %}
+                        {% set pct = ((s.attended / total_sessions) * 100) | round(1) %}
+                        {% if pct >= 80 %}{% set color = 'green' %}
+                        {% elif pct >= 60 %}{% set color = 'yellow' %}
+                        {% else %}{% set color = 'red' %}{% endif %}
+                        <div class="progress-bar-wrap">
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill {{ color }}"
+                                     style="--pct:{{ pct }}%;">
+                                </div>
+                            </div>
+                            <span class="pct-text {{ color }}">{{ pct }}%</span>
+                        </div>
+                    {% else %}
+                        <span class="text-muted">No sessions yet</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No students enrolled in this class yet.</div>
+    {% endif %}
+</div>
+
+<!-- Start Session Modal -->
+<div class="modal-overlay" id="session-modal"
+     onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="modal">
+        <div class="modal-header">
+            <div>
+                <h3>Start Attendance Session</h3>
+                <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    {{ selected_class.course_code }} — {{ selected_class.class_name }}
+                </p>
+            </div>
+            <button class="modal-close"
+                    onclick="document.getElementById('session-modal').classList.remove('open')">✕</button>
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('start_class_session', class_id=selected_class.id) }}">
+
+            <div class="form-group">
+                <label>Session Name</label>
+                <input type="text" name="session_name"
+                       value="{{ selected_class.course_code }} - {{ selected_class.class_name }}"
+                       required>
+            </div>
+
+            <div class="modal-row">
+                <div class="form-group">
+                    <label>Session Date</label>
+                    <input type="date" name="session_date" required
+                           id="session_date">
+                </div>
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="time" name="start_time" required
+                           id="start_time">
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary"
+                        onclick="document.getElementById('session-modal').classList.remove('open')">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="bi bi-play-fill"></i> Start Session
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Auto-fill today's date and current time -->
+<script>
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    const timeStr = today.toTimeString().slice(0, 5);
+    document.getElementById('session_date').value = dateStr;
+    document.getElementById('start_time').value = timeStr;
+</script>
+
+{% endblock %}

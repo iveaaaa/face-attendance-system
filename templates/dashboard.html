@@ -6,7 +6,7 @@
     <div>
         <p class="eyebrow">Attendance Management</p>
         <h1 class="page-title">Welcome back, {{ user }}</h1>
-        <p class="page-sub">Monitor students, sessions, and today’s attendance activity.</p>
+        <p class="page-sub">Monitor students, sessions, and today's attendance activity.</p>
     </div>
     <div class="header-date" id="live-time"></div>
 </div>
@@ -17,7 +17,9 @@
             <div class="stat-label">Registered Students</div>
             <div class="stat-number">{{ total_students }}</div>
         </div>
-        <div class="stat-icon">👥</div>
+        <div class="stat-icon students-icon">
+            <i class="bi bi-people-fill"></i>
+        </div>
     </div>
 
     <div class="stat-card accent-blue">
@@ -25,7 +27,9 @@
             <div class="stat-label">Total Sessions</div>
             <div class="stat-number">{{ total_sessions }}</div>
         </div>
-        <div class="stat-icon">⏱️</div>
+        <div class="stat-icon sessions-icon">
+            <i class="bi bi-camera-video-fill"></i>
+        </div>
     </div>
 
     <div class="stat-card accent-orange">
@@ -33,18 +37,22 @@
             <div class="stat-label">Marked Today</div>
             <div class="stat-number">{{ today_attendance }}</div>
         </div>
-        <div class="stat-icon">✅</div>
+        <div class="stat-icon attendance-icon">
+            <i class="bi bi-clipboard-check-fill"></i>
+        </div>
     </div>
 </div>
 
 <div class="dashboard-grid">
+
+    <!-- Recent Attendance -->
     <div class="card">
         <div class="card-header">
             <div>
                 <h3>Recent Attendance</h3>
                 <p class="card-sub">Latest students marked by face recognition</p>
             </div>
-            <a href="{{ url_for('records') }}" class="card-link">View all</a>
+            <a href="{{ url_for('classes') }}" class="card-link">View Classes →</a>
         </div>
 
         {% if recent_records %}
@@ -62,7 +70,17 @@
                 <tr>
                     <td><strong>{{ r.name }}</strong></td>
                     <td class="mono">{{ r.timestamp.strftime('%H:%M:%S') if r.timestamp else '—' }}</td>
-                    <td class="mono">{{ '%.1f'|format(r.recognition_confidence) if r.recognition_confidence else '—' }}</td>
+                    <td class="mono">
+                        {% if r.recognition_confidence %}
+                            {% if r.recognition_confidence <= 1 %}
+                                {{ '%.4f'|format(r.recognition_confidence) }}
+                            {% else %}
+                                {{ '%.1f'|format(r.recognition_confidence) }}
+                            {% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
                     <td><span class="badge badge-green">{{ r.status }}</span></td>
                 </tr>
                 {% endfor %}
@@ -73,13 +91,14 @@
         {% endif %}
     </div>
 
+    <!-- Recent Sessions -->
     <div class="card">
         <div class="card-header">
             <div>
                 <h3>Recent Sessions</h3>
                 <p class="card-sub">Recently created attendance sessions</p>
             </div>
-            <a href="{{ url_for('sessions') }}" class="card-link">View all</a>
+            <a href="{{ url_for('classes') }}" class="card-link">View Classes →</a>
         </div>
 
         {% if recent_sessions %}
@@ -89,6 +108,7 @@
                     <th>Session</th>
                     <th>Date</th>
                     <th>Present</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -97,6 +117,10 @@
                     <td><strong>{{ s.session_name }}</strong></td>
                     <td class="mono">{{ s.date }}</td>
                     <td><span class="badge badge-blue">{{ s.count }}</span></td>
+                    <td>
+                        <a href="{{ url_for('records', session_id=s.id) }}"
+                           class="btn-secondary-sm">View</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -105,6 +129,7 @@
         <div class="empty-state">No sessions created yet.</div>
         {% endif %}
     </div>
+
 </div>
 
 <script>
@@ -113,13 +138,9 @@ function updateTime() {
     if (el) {
         const now = new Date();
         el.textContent = now.toLocaleDateString('en-MY', {
-            weekday:'long',
-            year:'numeric',
-            month:'long',
-            day:'numeric'
+            weekday:'long', year:'numeric', month:'long', day:'numeric'
         }) + ' · ' + now.toLocaleTimeString('en-MY', {
-            hour:'2-digit',
-            minute:'2-digit'
+            hour:'2-digit', minute:'2-digit'
         });
     }
 }
