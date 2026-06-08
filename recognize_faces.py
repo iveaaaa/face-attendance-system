@@ -258,9 +258,18 @@ stable_boxes       = {}
 session_start_time = time.time()
 print(f"[TIMER] Webcam opened — timer started")
 
-cap = cv2.VideoCapture(1)
-if not cap.isOpened():
-    cap = cv2.VideoCapture(0)
+cap = None
+for index in [2, 1, 0]:
+    test = cv2.VideoCapture(index)
+    if test.isOpened():
+        cap = test
+        print(f"[CAMERA] Using camera index {index}")
+        break
+    test.release()
+
+if cap is None:
+    print("Failed to access any webcam.")
+    exit()
 
 while True:
     ret, frame = cap.read()

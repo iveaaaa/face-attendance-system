@@ -930,9 +930,20 @@ def student_register_face():
         if os.path.isfile(old_path):
             os.remove(old_path)
 
-    cam = cv2.VideoCapture(1)
-    if not cam.isOpened():
-        cam = cv2.VideoCapture(0)
+    cam = None
+    for index in [2, 1, 0]:
+        test = cv2.VideoCapture(index)
+        if test.isOpened():
+            cam = test
+            print(f"[CAMERA] Face registration using camera index {index}")
+            break
+        test.release()
+
+    if cam is None or not cam.isOpened():
+        cursor.close()
+        conn.close()
+        flash("Camera could not be opened. Please check webcam connection.")
+        return redirect(url_for("student_profile"))
 
     if not cam.isOpened():
         cursor.close()
@@ -1032,6 +1043,8 @@ def student_register_face():
             break
 
     cam.release()
+    cv2.destroyAllWindows()
+    cv2.waitKey(1)
     cv2.destroyAllWindows()
 
     if count > 0:
