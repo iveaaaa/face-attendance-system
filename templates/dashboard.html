@@ -81,7 +81,13 @@
                             —
                         {% endif %}
                     </td>
-                    <td><span class="badge badge-green">{{ r.status }}</span></td>
+                    <td>
+                        {% if r.status == 'Present' %}
+                            <span class="badge badge-success">{{ r.status }}</span>
+                        {% else %}
+                            <span class="badge badge-danger">{{ r.status }}</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

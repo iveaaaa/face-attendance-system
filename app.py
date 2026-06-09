@@ -1103,11 +1103,13 @@ def student_classes():
     # Enrolled classes with attendance summary
     cursor.execute("""
         SELECT c.id, c.course_code, c.class_name,
-               COUNT(ar.id) AS total_sessions,
+               (SELECT COUNT(*) FROM attendance_sessions 
+                WHERE class_id = c.id) AS total_sessions,
                SUM(CASE WHEN ar.status = 'Present' THEN 1 ELSE 0 END) AS attended,
                ROUND(
                    SUM(CASE WHEN ar.status = 'Present' THEN 1 ELSE 0 END)
-                   / NULLIF(COUNT(ar.id), 0) * 100, 1
+                   / NULLIF((SELECT COUNT(*) FROM attendance_sessions 
+                    WHERE class_id = c.id), 0) * 100, 1
                ) AS percentage
         FROM class_students cs
         JOIN classes c ON cs.class_id = c.id
@@ -1128,7 +1130,7 @@ def student_classes():
             LEFT JOIN attendance_records ar
                 ON ar.session_id = sess.id AND ar.student_id = %s
             WHERE sess.class_id = %s
-            ORDER BY sess.date DESC, sess.start_time DESC
+            ORDER BY sess.id DESC
         """, (student_id, ec["id"]))
         ec["sessions"] = cursor.fetchall()
 

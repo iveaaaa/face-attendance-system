@@ -10,7 +10,7 @@ from deepface import DeepFace
 
 DATASET_PATH     = "dataset"
 MODEL_NAME       = "ArcFace"
-DETECTOR_BACKEND = "retinaface"
+DETECTOR_BACKEND = "yunet"
 DISTANCE_METRIC  = "cosine"
 
 def build_embeddings():

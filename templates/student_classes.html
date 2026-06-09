@@ -93,14 +93,14 @@
                         <div class="mini-progress-fill
                             {% if (ec.percentage or 0) >= 80 %}fill-green
                             {% elif (ec.percentage or 0) >= 60 %}fill-yellow
-                            {% else %}fill-red{% endif %}
+                            {% else %}fill-red{% endif %}"
                             style="width: {{ ec.percentage or 0 }}%">
                         </div>
                     </div>
                     <span class="
                         {% if (ec.percentage or 0) >= 80 %}text-green
                         {% elif (ec.percentage or 0) >= 60 %}text-yellow
-                        {% else %}text-red{% endif %}
+                        {% else %}text-red{% endif %}">
                         {{ ec.percentage or 0 }}%
                     </span>
                 </div>
@@ -115,7 +115,9 @@
 
         <div class="accordion-body" id="class-{{ ec.id }}" style="display:none;">
             {% if ec.sessions %}
-            <table class="data-table inner-table">
+
+            <!-- Session table with pagination -->
+            <table class="data-table inner-table" id="table-{{ ec.id }}">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -125,9 +127,9 @@
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tbody-{{ ec.id }}">
                     {% for s in ec.sessions %}
-                    <tr>
+                    <tr class="session-row-{{ ec.id }}" data-index="{{ loop.index0 }}">
                         <td>{{ loop.index }}</td>
                         <td>{{ s.session_name }}</td>
                         <td>{{ s.date }}</td>
@@ -143,6 +145,17 @@
                     {% endfor %}
                 </tbody>
             </table>
+
+            <!-- Pagination controls -->
+            <div class="pagination-row" id="pagination-{{ ec.id }}">
+                <span class="pagination-info" id="page-info-{{ ec.id }}"></span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button class="btn-page" id="prev-{{ ec.id }}" onclick="changePage('{{ ec.id }}', -1)">← Prev</button>
+                    <span id="page-num-{{ ec.id }}" style="font-size:12px; color:#6b7280;"></span>
+                    <button class="btn-page" id="next-{{ ec.id }}" onclick="changePage('{{ ec.id }}', 1)">Next →</button>
+                </div>
+            </div>
+
             {% else %}
             <div class="empty-state-sm">No sessions recorded yet.</div>
             {% endif %}
@@ -153,13 +166,79 @@
 </div>
 {% endif %}
 
+<style>
+.btn-page {
+    background: #f0f4ff;
+    border: 1px solid #c7d7f7;
+    color: #2563eb;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.btn-page:hover { background: #dbeafe; }
+.btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+</style>
+
 <script>
+const PAGE_SIZE = 5;
+const pageState = {};
+
+function initPagination(classId) {
+    const rows = document.querySelectorAll(`.session-row-${classId}`);
+    const total = rows.length;
+    if (total === 0) return;
+
+    pageState[classId] = { current: 0, total: Math.ceil(total / PAGE_SIZE) };
+
+    // Hide pagination if 5 or fewer rows
+    if (total <= PAGE_SIZE) {
+        const pg = document.getElementById(`pagination-${classId}`);
+        if (pg) pg.style.display = 'none';
+        return;
+    }
+
+    renderPage(classId);
+}
+
+function renderPage(classId) {
+    const rows = document.querySelectorAll(`.session-row-${classId}`);
+    const state = pageState[classId];
+    const start = state.current * PAGE_SIZE;
+    const end   = start + PAGE_SIZE;
+
+    rows.forEach((row, i) => {
+        row.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+
+    document.getElementById(`page-info-${classId}`).textContent =
+        `Showing ${start + 1}–${Math.min(end, rows.length)} of ${rows.length} sessions`;
+    document.getElementById(`page-num-${classId}`).textContent =
+        `Page ${state.current + 1} of ${state.total}`;
+
+    document.getElementById(`prev-${classId}`).disabled = state.current === 0;
+    document.getElementById(`next-${classId}`).disabled = state.current >= state.total - 1;
+}
+
+function changePage(classId, dir) {
+    const state = pageState[classId];
+    state.current = Math.max(0, Math.min(state.total - 1, state.current + dir));
+    renderPage(classId);
+}
+
 function toggleAccordion(id) {
-    const body = document.getElementById(id);
+    const body    = document.getElementById(id);
     const chevron = document.getElementById('chevron-' + id);
+    const classId = id.replace('class-', '');
+
     if (body.style.display === 'none') {
         body.style.display = 'block';
         chevron.style.transform = 'rotate(180deg)';
+        // Init pagination only on first open
+        if (!pageState[classId]) {
+            initPagination(classId);
+        }
     } else {
         body.style.display = 'none';
         chevron.style.transform = 'rotate(0deg)';
