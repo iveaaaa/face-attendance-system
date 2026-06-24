@@ -1,10 +1,3 @@
-"""
-train_model.py  —  DeepFace ArcFace Embedding Builder
-Replaces the old LBPH trainer.
-No manual training needed — just pre-builds the ArcFace embeddings
-from your dataset folder so first recognition is instant.
-"""
-
 import os
 from deepface import DeepFace
 
